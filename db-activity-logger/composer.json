@@ -1,0 +1,22 @@
+{
+    "name": "your-vendor/db-activity-logger",
+    "description": "Laravel package to log detailed database activity",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "YourVendor\\DbActivityLogger\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "YourVendor\\DbActivityLogger\\DbActivityLoggerServiceProvider"
+            ]
+        }
+    },
+    "require": {
+        "php": "^7.3|^8.0",
+        "illuminate/support": "^8.0|^9.0|^10.0"
+    }
+}
