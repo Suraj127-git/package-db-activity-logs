@@ -10,7 +10,7 @@ class QueryLogger
     {
         $tableName = $data['table'] ?? 'unknown_table';
         $logFile = config('db-activity-logger.log_file');
-    
+
         Log::build([
             'driver' => 'single',
             'path' => storage_path("logs/{$logFile}"),

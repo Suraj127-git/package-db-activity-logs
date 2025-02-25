@@ -9,16 +9,15 @@ class CreateDbActivityLogTable extends Migration
     public function up()
     {
         Schema::create('db_activity_log', function (Blueprint $table) {
-            $table->id();
-            $table->string('sql');
-            $table->json('bindings')->nullable();
-            $table->unsignedInteger('time')->nullable();
-            $table->string('table_name')->nullable();
-            $table->unsignedInteger('hit_count')->default(1);
+            $table->increments('id');
+            $table->text('sql');
+            $table->text('bindings');
+            $table->string('table_name'); // Ensure this exists
+            $table->integer('time');
+            $table->integer('hit_count')->default(1); // Must be included
             $table->timestamps();
         });
     }
-
     public function down()
     {
         Schema::dropIfExists('db_activity_log');

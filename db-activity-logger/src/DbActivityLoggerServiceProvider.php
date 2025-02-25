@@ -2,79 +2,106 @@
 
 namespace Shettyanna\DbActivityLogger;
 
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Shettyanna\DbActivityLogger\Http\Controllers\LogController;
 use Shettyanna\DbActivityLogger\Listeners\QueryLogger;
 
 class DbActivityLoggerServiceProvider extends ServiceProvider
 {
     public function boot()
     {
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'db-activity-logger');
+
+        Route::get('/db-activity-web', [LogController::class, 'index']);
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__.'/../config/db-activity-logger.php' => config_path('db-activity-logger.php'),
             ], 'config');
         }
 
-        // Store query hit count for each table
-        $queryCounts = [];
-
-        DB::listen(function ($query) use (&$queryCounts) {
-            $logData = [
-                'sql'      => $query->sql,
-                'bindings' => $query->bindings,
-                'time'     => $query->time,
-            ];
-        
+        DB::listen(function ($query) {
             $tableName = $this->getTableNameFromQuery($query->sql);
-            $logData['table_name'] = $tableName;
         
-            if (isset($queryCounts[$tableName])) {
-                $queryCounts[$tableName]++;
-            } else {
-                $queryCounts[$tableName] = 1;
+            if ($tableName === 'db_activity_log' || $tableName === 'sqlite_master') {
+                return;
             }
-        
-            $logData['hit_count'] = $queryCounts[$tableName];
-        
-            // Log to file
+
+            $logData = [
+                'sql'        => $query->sql,
+                'bindings'   => json_encode($query->bindings),
+                'time'       => $query->time,
+                'table_name' => $tableName,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
             QueryLogger::log($logData);
-        
-            // Log to database if enabled
+
             if (config('db-activity-logger.log_to_database')) {
-                \DB::table('db_activity_log')->updateOrInsert(
-                    ['sql' => $query->sql, 'table_name' => $tableName],
-                    [
-                        'bindings' => json_encode($query->bindings),
-                        'time' => $query->time,
-                        'hit_count' => $logData['hit_count'],
-                        'updated_at' => now(),
-                    ]
-                );
+                $existing = DB::table('db_activity_log')
+                    ->where('sql', $query->sql)
+                    ->where('table_name', $tableName)
+                    ->first();
+
+                if ($existing) {
+                    DB::table('db_activity_log')
+                        ->where('id', $existing->id)
+                        ->update([
+                            'bindings'   => $logData['bindings'],
+                            'time'       => $logData['time'],
+                            'hit_count'  => $existing->hit_count + 1,
+                            'updated_at' => $logData['updated_at'],
+                        ]);
+                } else {
+                    DB::table('db_activity_log')->insert([
+                        'sql'        => $logData['sql'],
+                        'table_name' => $logData['table_name'],
+                        'bindings'   => $logData['bindings'],
+                        'time'       => $logData['time'],
+                        'hit_count'  => 1,
+                        'created_at' => $logData['created_at'],
+                        'updated_at' => $logData['updated_at'],
+                    ]);
+                }
             }
         });
     }
 
     public function register()
     {
-        // Merge default configuration
         $this->mergeConfigFrom(
-            __DIR__.'/../config/db-activity-logger.php', 'db-activity-logger'
+            __DIR__.'/../config/db-activity-logger.php',
+            'db-activity-logger'
         );
+
+        $this->app->singleton('db-logger', function () {
+            return new QueryLogger();
+        });
     }
 
-    /**
-     * Get the table name from a given SQL query
-     *
-     * @param string $sql The SQL query
-     * @return string|null The table name (or null if not found)
-     */
     protected function getTableNameFromQuery(string $sql): ?string
     {
-        // This is a naive implementation and won't work for all cases
-        // e.g. subqueries, joins, etc. You may need to improve it
-        // depending on your use case.
-        preg_match('/FROM\s+([\w\d_]+)/', $sql, $matches);
-        return $matches[1] ?? null;
+        $sql = strtolower($sql);
+        $patterns = [
+            '/insert\s+into\s+["`]?(\w+)["`]?/i',
+            '/update\s+["`]?(\w+)["`]?/i',
+            '/delete\s+from\s+["`]?(\w+)["`]?/i',
+            '/from\s+["`]?(\w+)["`]?/i',
+        ];
+    
+        foreach ($patterns as $pattern) {
+            preg_match($pattern, $sql, $matches);
+            if (!empty($matches[1])) {
+                return $matches[1];
+            }
+        }
+    
+        return null;
     }
 }

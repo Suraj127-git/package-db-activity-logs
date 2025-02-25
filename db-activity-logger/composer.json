@@ -1,22 +1,32 @@
 {
-    "name": "your-vendor/db-activity-logger",
+    "name": "shettyanna/db-activity-logger",
     "description": "Laravel package to log detailed database activity",
     "type": "library",
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "YourVendor\\DbActivityLogger\\": "src/"
+            "Shettyanna\\DbActivityLogger\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "YourVendor\\DbActivityLogger\\DbActivityLoggerServiceProvider"
+                "Shettyanna\\DbActivityLogger\\DbActivityLoggerServiceProvider"
             ]
         }
     },
     "require": {
         "php": "^7.3|^8.0",
         "illuminate/support": "^8.0|^9.0|^10.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0",
+        "orchestra/testbench": "^6.0",
+        "pestphp/pest": "^1.23"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     }
 }
