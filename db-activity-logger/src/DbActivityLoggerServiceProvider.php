@@ -15,8 +15,7 @@ class DbActivityLoggerServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
-        $this->loadViewsFrom(__DIR__.'/../resources/views', 'db-activity-logger');
-
+        $this->loadViewsFrom(__DIR__.'/../resources/views/vendor/db-activity-logger', 'db-activity-logger');
         Route::get('/db-activity-web', [LogController::class, 'index']);
 
         if ($this->app->runningInConsole()) {
@@ -27,8 +26,8 @@ class DbActivityLoggerServiceProvider extends ServiceProvider
 
         DB::listen(function ($query) {
             $tableName = $this->getTableNameFromQuery($query->sql);
-        
-            if ($tableName === 'db_activity_log' || $tableName === 'sqlite_master') {
+
+            if (is_null($tableName) || $tableName === 'db_activity_log' || $tableName === 'sqlite_master') {
                 return;
             }
 
@@ -89,6 +88,7 @@ class DbActivityLoggerServiceProvider extends ServiceProvider
     {
         $sql = strtolower($sql);
         $patterns = [
+            '/create\s+table\s+["`]?(\w+)["`]?/i', // new pattern for CREATE TABLE statements
             '/insert\s+into\s+["`]?(\w+)["`]?/i',
             '/update\s+["`]?(\w+)["`]?/i',
             '/delete\s+from\s+["`]?(\w+)["`]?/i',
@@ -96,12 +96,12 @@ class DbActivityLoggerServiceProvider extends ServiceProvider
         ];
     
         foreach ($patterns as $pattern) {
-            preg_match($pattern, $sql, $matches);
-            if (!empty($matches[1])) {
+            if (preg_match($pattern, $sql, $matches) && !empty($matches[1])) {
                 return $matches[1];
             }
         }
     
         return null;
     }
+    
 }

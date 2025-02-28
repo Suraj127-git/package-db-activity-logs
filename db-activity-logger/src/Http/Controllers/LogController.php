@@ -2,9 +2,10 @@
 
 namespace Shettyanna\DbActivityLogger\Http\Controllers;
 
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\DB;
 
-class LogController extends Controller
+class LogController extends BaseController
 {
     public function index()
     {
